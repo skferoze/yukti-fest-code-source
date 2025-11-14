@@ -1,0 +1,33 @@
+version: 0.2
+# Environment variables must be set in the CodeBuild project settings
+env:
+  variables:
+    AWS_REGION: us-east-1 # Change to your region
+    ECR_REPO_NAME: my-app-repo
+    IMAGE_TAG: latest
+
+phases:
+  pre_build:
+    commands:
+      # 1. Retrieve the ECR Login password and log in to the Docker CLI
+      - echo "Logging in to Amazon ECR..."
+      - AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query "Account" --output text)
+      - ECR_URI=$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com
+      - REPO_URI=$ECR_URI/$ECR_REPO_NAME
+      - $(aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $ECR_URI)
+  build:
+    commands:
+      # 2. Build the Docker image
+      - echo "Building the Docker image..."
+      - docker build -t $REPO_URI:$IMAGE_TAG .
+  post_build:
+    commands:
+      # 3. Push the Docker image to ECR
+      - echo "Pushing the Docker image to ECR..."
+      - docker push $REPO_URI:$IMAGE_TAG
+
+# Optional: Output the Image URI for a downstream CodePipeline/CodeDeploy step
+artifacts:
+  files:
+    - imagedefinitions.json # required for ECS deployment
+  discard-paths: yes
