@@ -9,12 +9,21 @@ env:
 phases:
   pre_build:
     commands:
-      # 1. Retrieve the ECR Login password and log in to the Docker CLI
-      - echo "Logging in to Amazon ECR..."
+      # Step 1: Echo status
+      - echo "Logging in to Amazon ECR in region $AWS_REGION..."
+      
+      # Step 2: Use AWS STS to get the Account ID
+      # NOTE: This is safer than relying on hardcoded variables
       - AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query "Account" --output text)
+      
+      # Step 3: Define the full ECR URI using the Account ID and Region
       - ECR_URI=$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com
-      - REPO_URI=$ECR_URI/$ECR_REPO_NAME
-      - $(aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $ECR_URI)
+      
+      # Step 4: The FIX - Retrieve password and pipe it to docker login without the external $()
+      # (The $() is only needed if you want to capture the output, not just execute)
+      - aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $ECR_URI
+      
+      # Now proceed to the build phase...
   build:
     commands:
       # 2. Build the Docker image
